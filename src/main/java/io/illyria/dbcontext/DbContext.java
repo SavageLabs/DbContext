@@ -1,11 +1,15 @@
 package io.illyria.dbcontext;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.ParameterizedType;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.concurrent.CompletableFuture;
+
+import io.illyria.dbcontext.entity.DbEntity;
+import io.illyria.dbcontext.entity.DbEntityColumn;
 
 /**
  * Database O/RM context manager.
@@ -22,9 +26,12 @@ public abstract class DbContext {
      * @param connectionString Connection string to connect to the server.
      */
     public DbContext(String connectionString) {
-        this._connection = this.buildConnection(connectionString);
+        System.out.println("Calculating entities.");
+        this.modelConfigure();
 
-        this.buildModel();
+        System.out.println("Creating new connection.");
+        this._connection = this.buildConnection(connectionString);
+        System.out.println("New connection has been created.");
     }
 
     /**
@@ -67,7 +74,7 @@ public abstract class DbContext {
      *
      * @return The current connection being used by the O/RM handler.
      */
-    protected Connection geConnection() {
+    protected Connection getConnection() {
         return this._connection;
     }
 
@@ -93,7 +100,7 @@ public abstract class DbContext {
     protected ResultSet queryScript(String query) {
         try {
             if (!this.isConnected())
-                this.geConnection();
+                this.getConnection();
 
             PreparedStatement statement = this._connection.prepareStatement(query);
 
@@ -122,7 +129,7 @@ public abstract class DbContext {
     protected Integer updateScript(String query) {
         try {
             if (!this.isConnected())
-                this.geConnection();
+                this.getConnection();
 
             PreparedStatement statement = this._connection.prepareStatement(query);
 
@@ -142,51 +149,20 @@ public abstract class DbContext {
         return CompletableFuture.supplyAsync(() -> this.updateScript(query));
     }
 
-    /**
-     * Builds the context model to use against the database.
-     */
-    private void buildModel() {
-        Field[] fields = this.getClass().getDeclaredFields();
-        for (Field field : fields) {
-            DbContextModel shadow = new DbContextModel(field.getClass());
-        }
-    }
-
-    /**
-     * Creates a table upon a class type.
-     */
-    private final class DbContextModel {
-
-        /**
-         * Table name where the entity will be held in database.
-         */
-        private String tableName;
-
-        /**
-         * Column names that belongs to the table.
-         */
-        private String[] columnStrings;
-
-        /**
-         * Builds a new table model refence from a class type.
-         *
-         * @param <TContextEntity> The entity to construct the table from.
-         * @param entity           The class entity to build the table from.
-         */
-        public <TContextEntity> DbContextModel(Class<TContextEntity> entity) {
-            this.tableName = entity.getName();
-            this.columnStrings = this.calculateColumns(entity);
-        }
-
-        /**
-         * Calculates the columns to be appended to the table.
-         *
-         * @param <TContextEntity> The entity to construct the table from.
-         * @param entity           The class entity to build the table from.
-         * @return An array of column names.
-         */
-        private <TContextEntity> String[] calculateColumns(Class<TContextEntity> entity) {
-            throw new UnsupportedOperationException("This has not been implemented yet.");
+    private void modelConfigure() {
+        for (Field field : this.getClass().getDeclaredFields()) {
+            // Only DbSet<?> representations should be considered.
+            if (!field.getType().isAssignableFrom(DbSet.class))
+                continue;
+            Class<?> _class = (Class<?>) ((ParameterizedType) field.getGenericType()).getActualTypeArguments()[0];
+            if (_class == null)
+                continue;
+            // Determine table.
+            DbEntity entity = new DbEntity(_class);
+            System.out.println("Working with entity table: " + entity.getTable());
+            System.out.println("Working with entity columns:");
+            for (DbEntityColumn column : entity.getColumns())
+                System.out.println("" + column);
         }
     }
 }
