@@ -1,17 +1,14 @@
 package io.illyria.dbcontext;
 
-/**
- * Hello world!
- */
 public final class App {
-    private App() {
+    private final AppDbContext _ctx;
+
+    public App() {
+        this._ctx = new AppDbContext();
     }
 
-    /**
-     * Says hello to the world.
-     * @param args The arguments of the program.
-     */
-    public static void main(String[] args) {
-        System.out.println("Hello World!");
+    public void useContext() {
+        this._ctx.customs.add(new CustomModel("Hello", "World"));
     }
+
 }
